@@ -8,6 +8,7 @@
 import { fingerprint, isSeverity, type Dismissed, type Finding } from "./findings";
 import type { SourceFile } from "./files";
 import type { Signal } from "./checks/patterns";
+import { skillText, validationText, type SkillRef } from "./skills";
 
 export interface AiBinding {
   run(model: string, input: unknown, options?: unknown): Promise<unknown>;
@@ -21,6 +22,8 @@ export interface ModelOptions {
   maxChars: number;
   minConfidence: number;
   gateway?: string;
+  /** Character budget for skill methodology in each prompt (0 = none). */
+  skillChars?: number;
 }
 
 /** Both run on the Workers Free plan (the larger GLM, Kimi and DeepSeek models need Workers Paid). */
@@ -32,6 +35,8 @@ export interface Focus {
   name: string;
   /** What this reviewer looks for; one paragraph. */
   instructions: string;
+  /** Domains of Cloudflare's security-audit skill this reviewer loads, in priority order. */
+  skill?: SkillRef[];
 }
 
 /** The single generalist used by the Starter; the Advanced track splits this into specialists. */
@@ -44,11 +49,15 @@ export const GENERALIST: Focus = {
     "forgery, path traversal, unsafe deserialization, cryptography misuse, secrets handled unsafely, insecure configuration " +
     "(CORS, headers, cookies), CI/CD workflow injection, and AI-specific risks (untrusted text placed in prompts that can " +
     "trigger tools or writes, model output executed or rendered without validation).",
+  skill: [
+    { domain: "ATTACK-CLASSES", classes: ["Injection", "Access control", "Obvious things"] },
+    { domain: "AI-AND-LLM", classes: ["Tool and action attack classes"] },
+  ],
 };
 
-const SYSTEM = (focus: Focus) => `You are ${focus.name}, a careful application-security reviewer.
+const SYSTEM = (focus: Focus, methodology: string) => `You are ${focus.name}, a careful application-security reviewer.
 ${focus.instructions}
-
+${methodology ? `\n${methodology}\n` : ""}
 Rules:
 - Security only. No style, naming, performance or code-quality comments.
 - Report a finding only when you can name where untrusted input comes from (a request, a webhook, a file upload, a model
@@ -174,12 +183,19 @@ function signalHints(signals: Signal[]): string {
   return `\nPattern matches to check (leads only; report one only if untrusted input really reaches it):\n${rows.join("\n")}\n`;
 }
 
-export async function hunt(ai: AiBinding, opts: ModelOptions, focus: Focus, files: SourceFile[], signals: Signal[]): Promise<{ candidates: Candidate[]; omitted: string[] }> {
+export async function hunt(
+  ai: AiBinding,
+  opts: ModelOptions,
+  focus: Focus,
+  files: SourceFile[],
+  signals: Signal[],
+): Promise<{ candidates: Candidate[]; omitted: string[]; skills: string[] }> {
   const packed = packFiles(files, opts.maxChars);
-  if (packed.included.length === 0) return { candidates: [], omitted: packed.omitted };
+  const skill = skillText(focus.skill ?? [], opts.skillChars ?? 0);
+  if (packed.included.length === 0) return { candidates: [], omitted: packed.omitted, skills: [] };
   const user = `Review these files.${signalHints(signals.filter((s) => packed.included.includes(s.file)))}\n${packed.text}`;
-  const obj = await runJson(ai, opts, SYSTEM(focus), user);
-  return { candidates: toCandidates(obj, packed.included, focus.id), omitted: packed.omitted };
+  const obj = await runJson(ai, opts, SYSTEM(focus, skill.text), user);
+  return { candidates: toCandidates(obj, packed.included, focus.id), omitted: packed.omitted, skills: skill.loaded };
 }
 
 const VERIFY_SYSTEM = `You verify security findings written by another reviewer. You did not write them and you are not
@@ -196,6 +212,8 @@ export async function verify(
   opts: ModelOptions,
   candidates: Candidate[],
   files: SourceFile[],
+  /** Skill domains whose validation rules the verifier applies. */
+  domains: string[] = [],
 ): Promise<{ kept: Finding[]; dismissed: Dismissed[] }> {
   if (candidates.length === 0) return { kept: [], dismissed: [] };
   const involved = files.filter((f) => candidates.some((c) => c.file === f.path));
@@ -205,7 +223,8 @@ export async function verify(
     .join("\n");
   let verdicts: Record<string, unknown>[] = [];
   try {
-    const obj = await runJson(ai, opts, VERIFY_SYSTEM, `Findings:\n${list}\n\n${packed.text}`, 2048, opts.verifyModel);
+    const rules = opts.skillChars ? `\n\n${validationText(domains, Math.max(2000, Math.floor((opts.skillChars ?? 0) * 0.75)))}` : "";
+    const obj = await runJson(ai, opts, VERIFY_SYSTEM + rules, `Findings:\n${list}\n\n${packed.text}`, 2048, opts.verifyModel);
     verdicts = Array.isArray(obj.verdicts) ? (obj.verdicts as Record<string, unknown>[]) : [];
   } catch {
     // Verifier unavailable: keep only what the hunter was already sure of, and say so.

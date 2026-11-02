@@ -1,0 +1,11 @@
+cloudflare-security-reviewer
+Copyright (c) 2026 ClawBuilders. Licensed under the MIT License (see LICENSE).
+
+This repository includes third-party material:
+
+- cloudflare/security-audit-skill (https://github.com/cloudflare/security-audit-skill)
+  Copyright (c) 2025-2026 Cloudflare, Inc. MIT License.
+  Vendored unmodified under starter/skills/security-audit/ at commit c1c8a8c1471069fb0e188eeaff69b8e8db6564a8,
+  with its LICENSE alongside. Extracted into starter/src/lib/skills.generated.ts by scripts/sync-skills.mjs.
+
+- GitHub helper code adapted from Clawbuilders/cloudflare-compliance-reviewer (MIT).

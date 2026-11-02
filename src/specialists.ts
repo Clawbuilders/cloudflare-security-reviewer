@@ -1,13 +1,14 @@
 /**
  * The committee. Each specialist owns one angle and gets only the files that matter to it. A specialist is just data
- * (an id, a triage question, instructions, a path filter), so a repository can add its own through the policy API
- * without a redeploy. The model never decides alone which specialists can be skipped: a deterministic signal in a
+ * (an id, a triage question, instructions, a path filter, and the domains of Cloudflare's security-audit skill it loads),
+ * so a repository can add its own through the policy API without a redeploy. The model never decides alone which specialists can be skipped: a deterministic signal in a
  * specialist's area always wakes it.
  */
 import type { Focus } from "../starter/src/lib/model";
 import type { SourceFile } from "../starter/src/lib/files";
 import { isWorkflow } from "../starter/src/lib/files";
 import type { SignalData } from "../starter/src/lib/pipeline";
+import { isSkillDomain, SKILL_DOMAINS } from "../starter/src/lib/skills";
 
 export interface Specialist extends Focus {
   /** One yes/no question for the triage model. */
@@ -31,6 +32,10 @@ export const BUILT_IN: Specialist[] = [
       "Look for injection (SQL, NoSQL, shell, template, code), cross-site scripting, path traversal, server-side request forgery, " +
       "open redirects, unsafe deserialization and unsafe file upload handling. Trace each from the request, webhook or other " +
       "untrusted input to the sink.",
+    skill: [
+      { domain: "ATTACK-CLASSES", classes: ["Injection", "Resource and file handling", "Feature abuse and data leakage", "Chained vulnerabilities and trust boundaries", "Obvious things"] },
+      { domain: "CLIENT-SIDE", core: false, classes: ["DOM and object-state attack classes", "Cross-origin messaging and network attack classes"] },
+    ],
   },
   {
     id: "identity",
@@ -41,6 +46,10 @@ export const BUILT_IN: Specialist[] = [
       "Look for missing or wrong authorization (including one user reaching another user's records by changing an id), broken " +
       "authentication, session fixation, tokens that are not verified or never expire, secrets compared without constant time, " +
       "secrets exposed in URLs or logs, weak or misused cryptography, and webhook handlers that skip signature checks.",
+    skill: [
+      { domain: "WEB-PROTOCOL-AND-AUTH", classes: ["Browser-session attack classes", "API-key and mTLS attack classes", "Federated-identity attack classes", "MFA, passkey, and account-transition attack classes", "Universal moves"] },
+      { domain: "ATTACK-CLASSES", core: false, classes: ["Access control", "Cryptography and secrets"] },
+    ],
   },
   {
     id: "supply-chain",
@@ -52,6 +61,7 @@ export const BUILT_IN: Specialist[] = [
       "Look for risky dependency changes: install or postinstall scripts that fetch and run code, dependencies pulled from git URLs " +
       "or unpinned registries, packages whose names look like a typo of a popular package, and scripts or images fetched without " +
       "a pinned version or checksum.",
+    skill: [{ domain: "SUPPLY-CHAIN-AND-RELEASE", classes: ["Dependency and build-input attack classes", "Release and update attack classes", "Universal moves"] }],
   },
   {
     id: "ci-cloud",
@@ -64,6 +74,10 @@ export const BUILT_IN: Specialist[] = [
       "secrets exposed to forks, third-party actions not pinned to a commit, permissive CORS with credentials, missing or weakened " +
       "security headers and cookie flags, admin or internal routes exposed without an access check, and debug or dry-run modes " +
       "left on in production configuration.",
+    skill: [
+      { domain: "CLOUD-AND-DEPLOYMENT", classes: ["Configuration and secret lifecycle attack classes", "Managed storage, events, and edge attack classes", "Ingress, network, and control-plane attack classes", "Workload identity and IAM attack classes"] },
+      { domain: "SUPPLY-CHAIN-AND-RELEASE", core: false, classes: ["CI and automation attack classes"] },
+    ],
   },
   {
     id: "ai-agent",
@@ -76,6 +90,21 @@ export const BUILT_IN: Specialist[] = [
       "effects such as writes, payments, email or deploys callable without a person confirming), over-broad credentials given " +
       "to an agent, model output executed or rendered or used in queries without validation, secrets placed in prompts, and " +
       "missing limits on agent loops or spend.",
+    skill: [{ domain: "AI-AND-LLM" }],
+  },
+  {
+    id: "data-isolation",
+    name: "Data isolation and lifecycle specialist",
+    question: "Does this change read, write, export, delete or share records that belong to different users, teams or tenants?",
+    categories: [],
+    instructions:
+      "Look for one user, team or tenant reaching another's records: queries missing an owner or tenant filter, ids taken from " +
+      "the request without an ownership check, caches or search indexes shared across tenants, exports and backups that " +
+      "include other people's data, and deletes or revocations that leave copies, sessions or derived data behind.",
+    skill: [
+      { domain: "DATA-ISOLATION-AND-LIFECYCLE" },
+      { domain: "ATTACK-CLASSES", core: false, classes: ["Business logic"] },
+    ],
   },
 ];
 
@@ -86,6 +115,8 @@ export interface CustomSpecialist {
   instructions: string;
   /** Path prefixes; empty = all reviewable files. */
   paths?: string[];
+  /** Domains of the vendored security-audit skill to load, for example ["DATA-ISOLATION-AND-LIFECYCLE"]. */
+  skill?: string[];
 }
 
 export function parseCustomSpecialists(input: unknown): CustomSpecialist[] {
@@ -100,7 +131,10 @@ export function parseCustomSpecialists(input: unknown): CustomSpecialist[] {
     const id = str(s.id, 30, "id");
     if (!/^[a-z0-9-]+$/.test(id) || BUILT_IN.some((b) => b.id === id)) throw new Error(`specialists[${i}].id must be lowercase-with-dashes and not a built-in id`);
     if (s.paths !== undefined && (!Array.isArray(s.paths) || s.paths.some((p) => typeof p !== "string"))) throw new Error(`specialists[${i}].paths must be a list of path prefixes`);
-    return { id, name: str(s.name, 60, "name"), question: str(s.question, 300, "question"), instructions: str(s.instructions, 1500, "instructions"), paths: s.paths };
+    if (s.skill !== undefined && (!Array.isArray(s.skill) || s.skill.length > 3 || s.skill.some((d) => typeof d !== "string" || !isSkillDomain(d)))) {
+      throw new Error(`specialists[${i}].skill must list up to 3 of: ${SKILL_DOMAINS.join(", ")}`);
+    }
+    return { id, name: str(s.name, 60, "name"), question: str(s.question, 300, "question"), instructions: str(s.instructions, 1500, "instructions"), paths: s.paths, skill: s.skill };
   });
 }
 
@@ -112,6 +146,7 @@ export function toSpecialist(c: CustomSpecialist): Specialist {
     instructions: c.instructions,
     categories: [],
     paths: c.paths?.length ? (p) => c.paths!.some((prefix) => p.startsWith(prefix)) : undefined,
+    skill: c.skill?.map((domain) => ({ domain })),
   };
 }
 

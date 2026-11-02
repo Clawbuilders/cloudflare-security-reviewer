@@ -9,7 +9,7 @@ Both tracks run on the **Cloudflare Workers Free plan**.
 | Track | What you build | Deploy |
 |---|---|---|
 | **Starter**: [`starter/`](starter) | One reviewer per PR: secrets, vulnerable dependencies (OSV.dev), risky patterns, then a model review that has to show how untrusted input reaches each problem, checked by a second model. One comment and a commit status. | [![Deploy Starter](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/Clawbuilders/cloudflare-security-reviewer/tree/main/starter) |
-| **Advanced**: this directory | A committee: Clef triage wakes five specialists (AppSec, identity, supply chain, CI and cloud config, AI-agent security) in parallel durable steps, plus your own specialists. Versioned policies you change without redeploying, four-eyes waivers that expire, an audit log, and suggested fixes a person commits. | [![Deploy Advanced](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/Clawbuilders/cloudflare-security-reviewer) |
+| **Advanced**: this directory | A committee: Clef triage wakes six specialists (AppSec, identity, supply chain, CI and cloud config, AI-agent security, data isolation) in parallel durable steps, plus your own specialists. Versioned policies you change without redeploying, four-eyes waivers that expire, an audit log, and suggested fixes a person commits. | [![Deploy Advanced](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/Clawbuilders/cloudflare-security-reviewer) |
 
 The workshop guide is [`docs/workshop-guide.md`](docs/workshop-guide.md).
 
@@ -28,6 +28,10 @@ positives on real web apps, and the same prompt found different issues on differ
 4. **Treats the code as untrusted.** A pull request can contain text written to steer an AI reviewer. The models have no
    tools, answer only in validated JSON, and a rule flags text addressed to AI reviewers.
 5. **Lets a policy decide.** What blocks is configuration, not code. Every verdict records the policy version.
+6. **Borrows a real audit methodology.** Each reviewer loads the matching domain of
+   [Cloudflare's security-audit skill](https://github.com/cloudflare/security-audit-skill) (MIT): its "core discipline"
+   and attack classes go to the model that proposes findings, and its validation rules and verifier checklist go to the
+   model that checks them. Only the domains a reviewer owns are loaded, and only when triage wakes it.
 
 It flags risk for a person to judge. It does not prove that a finding is exploitable and it can miss things.
 
@@ -100,6 +104,32 @@ Webhook events: **Pull requests** and **Issue comments**.
 | `supply-chain` | dependency, install-script or build changes | install scripts that fetch code, git or unpinned sources, typo-named packages, unpinned downloads |
 | `ci-cloud` | workflows, deploy config, CORS, headers, Wrangler | Actions script injection, `pull_request_target` misuse, broad permissions, unpinned actions, permissive CORS, exposed admin routes |
 | `ai-agent` | model calls, prompts, agent tools | the OWASP Top 10 for Agentic Applications (2026): goal hijack from untrusted text, tools with side effects and no confirmation, model output executed or rendered |
+| `data-isolation` | records of different users, teams or tenants | missing owner or tenant filters, shared caches and indexes, exports with other people's data, deletes that leave copies behind |
+
+### Skills each specialist loads
+
+From the vendored [`starter/skills/security-audit/`](starter/skills/security-audit) (Cloudflare, MIT, pinned commit in
+`UPSTREAM.md`). The review comment lists what was loaded.
+
+| Reviewer | Skill domains |
+|---|---|
+| Starter generalist | `ATTACK-CLASSES` (injection, access control, obvious things), `AI-AND-LLM` (tool and action classes) |
+| `appsec` | `ATTACK-CLASSES`, `CLIENT-SIDE` |
+| `identity` | `WEB-PROTOCOL-AND-AUTH`, `ATTACK-CLASSES` (access control, cryptography and secrets) |
+| `supply-chain` | `SUPPLY-CHAIN-AND-RELEASE` |
+| `ci-cloud` | `CLOUD-AND-DEPLOYMENT`, `SUPPLY-CHAIN-AND-RELEASE` (CI and automation) |
+| `ai-agent` | `AI-AND-LLM` |
+| `data-isolation` | `DATA-ISOLATION-AND-LIFECYCLE`, `ATTACK-CLASSES` (business logic) |
+| verifier | the skill's source-only verifier checklist plus each involved domain's validation rules |
+
+`SKILL_CHARS` (6000 Starter, 7000 Advanced) caps how much methodology goes into each prompt; core discipline is loaded
+first, then attack classes in priority order. Set it to `0` to compare reviews with and without the skill. A custom
+specialist can load a domain too: add `"skill": ["DATA-ISOLATION-AND-LIFECYCLE"]` to its policy entry. To update the
+skill, copy newer files into the vendored directory and run `npm run skills:sync`; `npm test` fails if the generated
+module is stale or a specialist names an attack class that no longer exists.
+
+For a deep audit of a whole repository, run the full skill in your coding agent (Claude Code, Codex, Gemini CLI, Cursor,
+OpenCode) alongside this reviewer: the skill audits occasionally and deeply, the reviewer checks every pull request.
 
 Clef (`@cf/cloudflare/clef-flash`) answers one yes/no question per specialist. Triage can only add work: a deterministic
 signal in a specialist's area always wakes it, and if Clef is unavailable every specialist runs.
@@ -115,6 +145,7 @@ curl -X PUT https://<worker>/api/<owner>/<repo>/policy \
     "ignore_paths": ["generated/"],
     "specialists": [{
       "id": "webhooks",
+      "skill": ["WEB-PROTOCOL-AND-AUTH"],
       "name": "Webhook reviewer",
       "question": "Does this change add or modify a webhook or callback endpoint?",
       "instructions": "Check every webhook verifies its signature over the raw body before acting and rejects replays.",
@@ -163,7 +194,8 @@ review. Quoted lines and code fences are ignored, so replying to the bot never t
 ## Develop
 
 ```bash
-npm test            # unit tests: checks, policy, model-output validation, waivers, triage
+npm test            # skill sync check + unit tests: checks, policy, model output, waivers, triage, skill wiring
+npm run skills:sync # regenerate starter/src/lib/skills.generated.ts after updating the vendored skill
 npm run typecheck   # both tracks
 ```
 
@@ -176,4 +208,5 @@ Paste a prompt like this into Claude Code, Codex, Gemini CLI, Cursor, OpenCode o
 
 ## License
 
-MIT. GitHub helpers adapted from [cloudflare-compliance-reviewer](https://github.com/Clawbuilders/cloudflare-compliance-reviewer).
+MIT. See `NOTICE`: includes Cloudflare's security-audit skill (MIT) and GitHub helpers adapted from
+[cloudflare-compliance-reviewer](https://github.com/Clawbuilders/cloudflare-compliance-reviewer).

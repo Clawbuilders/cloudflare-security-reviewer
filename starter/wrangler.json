@@ -5,6 +5,6 @@
   "compatibility_date": "2026-09-09",
   "ai": { "binding": "AI" },
   "workflows": [{ "name": "security-reviewer-starter", "binding": "REVIEW_WORKFLOW", "class_name": "ReviewWorkflow" }],
-  "vars": { "MODEL": "@cf/openai/gpt-oss-120b", "VERIFY_MODEL": "@cf/nvidia/nemotron-3-120b-a12b", "MIN_CONFIDENCE": "0.6", "MAX_CONTEXT_FILES": "15", "MAX_MODEL_CHARS": "40000" },
+  "vars": { "MODEL": "@cf/openai/gpt-oss-120b", "VERIFY_MODEL": "@cf/nvidia/nemotron-3-120b-a12b", "MIN_CONFIDENCE": "0.6", "MAX_CONTEXT_FILES": "15", "MAX_MODEL_CHARS": "40000", "SKILL_CHARS": "6000" },
   "observability": { "enabled": true }
 }

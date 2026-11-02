@@ -4,6 +4,7 @@
  */
 import type { Dismissed, Finding } from "./findings";
 import { rank } from "./findings";
+import { SKILL_LABEL, SKILL_SOURCE_URL } from "./skills";
 
 export const MARKER = "<!-- clawbuilders-security-reviewer -->";
 
@@ -16,7 +17,7 @@ export interface Report {
   model: string;
   findings: Finding[];
   dismissed: Dismissed[];
-  stats: { files: number; reviewedByModel: number; omitted: string[]; skippedModel?: string };
+  stats: { files: number; reviewedByModel: number; omitted: string[]; skippedModel?: string; skills?: string[] };
   waived?: { id: string; reason: string; approvedBy: string; expires: string }[];
 }
 
@@ -63,6 +64,7 @@ export function renderReport(r: Report): string {
     `Commit ${code(r.sha.slice(0, 7))} · ${r.stats.files} file${r.stats.files === 1 ? "" : "s"} checked · ${r.stats.reviewedByModel} read by ${code(r.model.replace(/^@cf\//, ""))} · policy ${code(r.policyVersion)}`,
   );
   if (r.stats.skippedModel) out.push(`\n_Model pass skipped: ${clean(r.stats.skippedModel)}_`);
+  if (r.stats.skills?.length) out.push(`\n_Methodology: [${SKILL_LABEL}](${SKILL_SOURCE_URL}) (${r.stats.skills.map((s) => clean(s, 80)).join("; ")})_`);
   if (blocking.length) out.push("\n### Blocking", ...blocking.map((f, i) => item(f, i + 1)));
   if (rest.length) out.push("\n### Review", ...rest.map((f, i) => item(f, i + 1)));
   if (r.findings.length === 0) out.push("\nNothing reachable was found in the lines under review.");

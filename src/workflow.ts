@@ -36,6 +36,7 @@ export class ReviewWorkflow extends WorkflowEntrypoint<Env, ReviewParams> {
       maxChars: Number(env.MAX_MODEL_CHARS || 30000),
       minConfidence: Number(env.MIN_CONFIDENCE || 0.6),
       gateway: env.AI_GATEWAY || undefined,
+      skillChars: Number(env.SKILL_CHARS ?? 7000),
     };
 
     const stored = await step.do("load policy", RETRY, async () => {
@@ -71,10 +72,10 @@ export class ReviewWorkflow extends WorkflowEntrypoint<Env, ReviewParams> {
           const files = filesFor(s, reviewable);
           const signals = fromSignalData(checked.signals).filter((x) => files.some((f) => f.path === x.file));
           try {
-            const { candidates } = await hunt(env.AI, opts, s, files, signals);
-            return { id, candidates, error: null as string | null };
+            const { candidates, skills } = await hunt(env.AI, opts, s, files, signals);
+            return { id, candidates, skills, error: null as string | null };
           } catch (e) {
-            return { id, candidates: [] as Candidate[], error: String(e).slice(0, 160) };
+            return { id, candidates: [] as Candidate[], skills: [] as string[], error: String(e).slice(0, 160) };
           }
         }),
       ),
@@ -83,7 +84,9 @@ export class ReviewWorkflow extends WorkflowEntrypoint<Env, ReviewParams> {
     const verified = await step.do("verify", RETRY, async () => {
       const all = proposals.flatMap((x) => x.candidates);
       try {
-        return await verify(env.AI, opts, all, reviewable);
+        // The verifier applies the validation rules of every domain whose specialist proposed something.
+        const domains = proposals.filter((x) => x.candidates.length > 0).flatMap((x) => x.skills);
+        return await verify(env.AI, opts, all, reviewable, domains);
       } catch (e) {
         return { kept: [] as Finding[], dismissed: all.map((c) => ({ title: c.title, file: c.file, reason: `verifier failed: ${String(e).slice(0, 80)}` })) };
       }
@@ -116,6 +119,7 @@ export class ReviewWorkflow extends WorkflowEntrypoint<Env, ReviewParams> {
           files: collected.files.length,
           reviewedByModel: reviewable.length,
           omitted: [],
+          skills: proposals.filter((x) => x.skills.length > 0).map((x) => `${x.id}: ${x.skills.join(" + ")}`),
           skippedModel:
             plan.run.length === 0
               ? `no specialist needed (${plan.tier})`

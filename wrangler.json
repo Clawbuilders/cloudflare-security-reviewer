@@ -14,7 +14,8 @@
     "TRIAGE_THRESHOLD": "0.35",
     "MIN_CONFIDENCE": "0.6",
     "MAX_CONTEXT_FILES": "15",
-    "MAX_MODEL_CHARS": "30000"
+    "MAX_MODEL_CHARS": "30000",
+    "SKILL_CHARS": "7000"
   },
   "observability": { "enabled": true }
 }

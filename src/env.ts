@@ -24,5 +24,7 @@ export interface Env extends GitHubAppEnv {
   MAX_CONTEXT_FILES?: string;
   MAX_MODEL_CHARS?: string;
   AI_GATEWAY?: string;
+  /** Characters of security-audit-skill methodology per prompt; "0" turns it off. */
+  SKILL_CHARS?: string;
   DRY_RUN?: string;
 }

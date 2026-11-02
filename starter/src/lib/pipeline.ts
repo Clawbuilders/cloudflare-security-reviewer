@@ -121,6 +121,8 @@ export interface Reviewed {
   reviewedByModel: number;
   omitted: string[];
   skippedModel?: string;
+  /** Skill domains loaded by the model pass. */
+  skills: string[];
 }
 
 /**
@@ -135,14 +137,14 @@ export function triage(c: Collected): { run: boolean; why?: string } {
 
 export async function review(ai: AiBinding, opts: ModelOptions, c: Collected, signals: SignalData[], focus: Focus = GENERALIST): Promise<Reviewed> {
   const gate = triage(c);
-  if (!gate.run) return { findings: [], dismissed: [], reviewedByModel: 0, omitted: [], skippedModel: gate.why };
+  if (!gate.run) return { findings: [], dismissed: [], reviewedByModel: 0, omitted: [], skippedModel: gate.why, skills: [] };
   const files = c.files.filter((x) => isReviewable(x.path) && x.lines.length > 0).sort((a, b) => priority(b.path) - priority(a.path));
   try {
-    const { candidates, omitted } = await hunt(ai, opts, focus, files, fromSignalData(signals));
-    const { kept, dismissed } = await verify(ai, opts, candidates, files);
-    return { findings: kept, dismissed, reviewedByModel: files.length - omitted.length, omitted };
+    const { candidates, omitted, skills } = await hunt(ai, opts, focus, files, fromSignalData(signals));
+    const { kept, dismissed } = await verify(ai, opts, candidates, files, skills);
+    return { findings: kept, dismissed, reviewedByModel: files.length - omitted.length, omitted, skills };
   } catch (e) {
-    return { findings: [], dismissed: [], reviewedByModel: 0, omitted: [], skippedModel: `model unavailable (${String(e).slice(0, 120)}); rules and dependency checks still ran` };
+    return { findings: [], dismissed: [], reviewedByModel: 0, omitted: [], skippedModel: `model unavailable (${String(e).slice(0, 120)}); rules and dependency checks still ran`, skills: [] };
   }
 }
 
@@ -157,6 +159,6 @@ export function decide(p: PrRef, c: Collected, checked: Checked, reviewed: Revie
     model,
     findings,
     dismissed: reviewed.dismissed,
-    stats: { files: c.files.length, reviewedByModel: reviewed.reviewedByModel, omitted: reviewed.omitted, skippedModel: reviewed.skippedModel },
+    stats: { files: c.files.length, reviewedByModel: reviewed.reviewedByModel, omitted: reviewed.omitted, skippedModel: reviewed.skippedModel, skills: reviewed.skills },
   };
 }

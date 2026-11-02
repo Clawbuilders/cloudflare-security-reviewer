@@ -28,6 +28,7 @@ export class ReviewWorkflow extends WorkflowEntrypoint<Env, PrRef> {
       maxChars: Number(env.MAX_MODEL_CHARS || 40000),
       minConfidence: Number(env.MIN_CONFIDENCE || 0.6),
       gateway: env.AI_GATEWAY || undefined,
+      skillChars: Number(env.SKILL_CHARS ?? 6000),
     };
 
     const collected = await step.do("collect", RETRY, async () => collect(p, await token(env, p.installationId), policy, Number(env.MAX_CONTEXT_FILES || 15)));

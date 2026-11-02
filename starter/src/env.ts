@@ -16,6 +16,8 @@ export interface Env extends GitHubAppEnv {
   MAX_MODEL_CHARS?: string;
   /** Optional AI Gateway id: logs, caching and rate limits for every model call. */
   AI_GATEWAY?: string;
+  /** Characters of security-audit-skill methodology per prompt; "0" turns it off. */
+  SKILL_CHARS?: string;
   /** "true" = never write to GitHub; read results at GET /reviews/<id>. */
   DRY_RUN?: string;
 }
