@@ -19,5 +19,7 @@ export interface Env extends GitHubAppEnv {
   /** Characters of security-audit-skill methodology per prompt; "0" turns it off. */
   SKILL_CHARS?: string;
   /** "true" = never write to GitHub; read results at GET /reviews/<id>. */
+  /** "false" = do not read code-scanning alerts (zizmor, CodeQL, osv-scanner) from GitHub. */
+  CODE_SCANNING?: string;
   DRY_RUN?: string;
 }

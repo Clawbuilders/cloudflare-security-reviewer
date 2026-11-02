@@ -17,7 +17,7 @@ export interface Report {
   model: string;
   findings: Finding[];
   dismissed: Dismissed[];
-  stats: { files: number; reviewedByModel: number; omitted: string[]; skippedModel?: string; skills?: string[] };
+  stats: { files: number; reviewedByModel: number; omitted: string[]; skippedModel?: string; skills?: string[]; scanners?: string };
   waived?: { id: string; reason: string; approvedBy: string; expires: string }[];
 }
 
@@ -65,6 +65,7 @@ export function renderReport(r: Report): string {
   );
   if (r.stats.skippedModel) out.push(`\n_Model pass skipped: ${clean(r.stats.skippedModel)}_`);
   if (r.stats.skills?.length) out.push(`\n_Methodology: [${SKILL_LABEL}](${SKILL_SOURCE_URL}) (${r.stats.skills.map((s) => clean(s, 80)).join("; ")})_`);
+  if (r.stats.scanners) out.push(`\n_Code-scanning alerts: ${clean(r.stats.scanners, 200)}_`);
   if (blocking.length) out.push("\n### Blocking", ...blocking.map((f, i) => item(f, i + 1)));
   if (rest.length) out.push("\n### Review", ...rest.map((f, i) => item(f, i + 1)));
   if (r.findings.length === 0) out.push("\nNothing reachable was found in the lines under review.");
@@ -73,14 +74,14 @@ export function renderReport(r: Report): string {
   }
   if (r.dismissed.length) {
     out.push(
-      `\n<details><summary>${r.dismissed.length} candidate finding(s) dismissed by the verifier</summary>\n`,
+      `\n<details><summary>${r.dismissed.length} candidate finding(s) dismissed by exclusion rules or the verifier</summary>\n`,
       ...r.dismissed.slice(0, 30).map((d) => `- ${clean(d.title, 120)} (${code(d.file)}): ${clean(d.reason, 200)}`),
       "\n</details>",
     );
   }
   if (r.stats.omitted.length) out.push(`\n_Too large for one model pass, checked by rules only: ${r.stats.omitted.slice(0, 15).map(code).join(", ")}_`);
   out.push(
-    "\n---\n_Security only: no style or quality findings. Deterministic findings come from rules and the OSV.dev database; model findings were proposed by one pass and confirmed by a second. It flags risk for a person to judge and can miss things._",
+    "\n---\n_Security only: no style or quality findings. Deterministic findings come from rules, OSV.dev (with EPSS and CISA KEV) and deps.dev; model and scanner findings were filtered by exclusion rules and confirmed by a second model. It flags risk for a person to judge and can miss things._",
   );
   return out.join("\n");
 }

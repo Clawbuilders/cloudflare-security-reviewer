@@ -14,6 +14,8 @@ export interface Dependency {
   manifest: string;
   dev: boolean;
   approximate: boolean;
+  /** Set by the collector: the package name is new in this PR (not a version bump). */
+  added?: boolean;
 }
 
 const OSV = "https://api.osv.dev/v1";

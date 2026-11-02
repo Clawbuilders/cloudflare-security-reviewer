@@ -8,4 +8,19 @@ This repository includes third-party material:
   Vendored unmodified under starter/skills/security-audit/ at commit c1c8a8c1471069fb0e188eeaff69b8e8db6564a8,
   with its LICENSE alongside. Extracted into starter/src/lib/skills.generated.ts by scripts/sync-skills.mjs.
 
+- anthropics/claude-code-security-review (https://github.com/anthropics/claude-code-security-review)
+  Copyright (c) 2025 Anthropic PBC. MIT License.
+  Hard exclusion rules and false-positive precedents adapted from claudecode/findings_filter.py and
+  claudecode/claude_api_client.py at commit 0c6a49f1fa56a1d472575da86a94dbc1edb78eda into
+  starter/src/lib/exclusions.ts. Changes are listed at the top of that file.
+
+- CoSAI Project CodeGuard (https://github.com/cosai-oasis/project-codeguard)
+  Licensed under Creative Commons Attribution 4.0 International (CC-BY-4.0), see skills/codeguard/LICENSE.md.
+  18 rule files vendored unmodified under skills/codeguard/rules/ at commit 41160d54980bab0618165485ade3cfd2ade93288,
+  extracted into src/codeguard.generated.ts by scripts/sync-skills.mjs (frontmatter removed). That material stays
+  under CC-BY-4.0; the rest of this repository is MIT.
+
+- Exploitation data fetched at run time, not redistributed: EPSS (FIRST.org, https://www.first.org/epss/) and the CISA
+  Known Exploited Vulnerabilities catalog (CC0). Package metadata from deps.dev (https://deps.dev) at run time.
+
 - GitHub helper code adapted from Clawbuilders/cloudflare-compliance-reviewer (MIT).

@@ -31,7 +31,7 @@ export class ReviewWorkflow extends WorkflowEntrypoint<Env, PrRef> {
       skillChars: Number(env.SKILL_CHARS ?? 6000),
     };
 
-    const collected = await step.do("collect", RETRY, async () => collect(p, await token(env, p.installationId), policy, Number(env.MAX_CONTEXT_FILES || 15)));
+    const collected = await step.do("collect", RETRY, async () => collect(p, await token(env, p.installationId), policy, { maxContextFiles: Number(env.MAX_CONTEXT_FILES || 15), codeScanning: env.CODE_SCANNING !== "false" }));
 
     if (!dry) {
       await step.do("status: pending", RETRY, async () =>
@@ -40,7 +40,7 @@ export class ReviewWorkflow extends WorkflowEntrypoint<Env, PrRef> {
     }
 
     const checked = await step.do("checks", RETRY, async () => checks(collected));
-    const reviewed = await step.do("review", RETRY, async () => review(env.AI, opts, collected, checked.signals));
+    const reviewed = await step.do("review", RETRY, async () => review(env.AI, opts, collected, checked, policy));
 
     return step.do("publish", RETRY, async () => {
       const report = decide(p, collected, checked, reviewed, policy, opts.model);

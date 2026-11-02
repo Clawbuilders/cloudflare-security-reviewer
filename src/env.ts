@@ -26,5 +26,9 @@ export interface Env extends GitHubAppEnv {
   AI_GATEWAY?: string;
   /** Characters of security-audit-skill methodology per prompt; "0" turns it off. */
   SKILL_CHARS?: string;
+  /** "false" = do not read code-scanning alerts (zizmor, CodeQL, osv-scanner) from GitHub. */
+  CODE_SCANNING?: string;
+  /** Comma-separated GitHub Actions workflow names whose completion triggers a re-review (scanner results arrive late). */
+  SCANNER_WORKFLOWS?: string;
   DRY_RUN?: string;
 }

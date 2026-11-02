@@ -1,0 +1,19 @@
+# Copy into the reviewed repository's .github/workflows/. osv-scanner checks lockfiles for many ecosystems (Go, Cargo,
+# Maven, Composer...) that the Worker's own OSV check does not read, and uploads results to code scanning.
+# https://github.com/google/osv-scanner-action
+name: osv-scanner
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions: {}
+
+jobs:
+  scan:
+    permissions:
+      security-events: write
+      contents: read
+      actions: read
+    uses: google/osv-scanner-action/.github/workflows/osv-scanner-reusable-pr.yml@b1d267aea5211fa648d9d442fa64b90dbdcbdd36   # v2.7.0

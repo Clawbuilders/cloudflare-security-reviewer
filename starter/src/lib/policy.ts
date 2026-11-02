@@ -5,6 +5,7 @@
  * One rule is not configurable: a provider-format credential (private key, GitHub/AWS/Stripe/... token) always blocks.
  */
 import { SEVERITY_RANK, type Finding, type Severity } from "./findings";
+import { DEFAULT_EXCLUSIONS, HARD_EXCLUSIONS } from "./exclusions";
 
 export interface Policy {
   version: string;
@@ -20,6 +21,10 @@ export interface Policy {
   report_min_confidence: number;
   /** Path prefixes never reviewed (generated code, fixtures you accept). */
   ignore_paths: string[];
+  /** A dependency in CISA's Known Exploited Vulnerabilities catalog blocks whatever its severity. */
+  block_known_exploited: boolean;
+  /** Hard-exclusion rules applied to model findings before verification (ids from exclusions.ts). */
+  model_exclusions: string[];
 }
 
 export const DEFAULT_POLICY: Policy = {
@@ -31,6 +36,8 @@ export const DEFAULT_POLICY: Policy = {
   include_dev_dependencies: false,
   report_min_confidence: 0.6,
   ignore_paths: [],
+  block_known_exploited: true,
+  model_exclusions: [...DEFAULT_EXCLUSIONS],
 };
 
 const HARD_RAIL_RULES = new Set([
@@ -67,7 +74,7 @@ export function applyPolicy(findings: Finding[], policy: Policy): Finding[] {
     if (isIgnored(f.file, policy) || f.confidence < policy.report_min_confidence) continue;
     if (f.category === "dependencies" && !policy.include_dev_dependencies && f.evidence?.includes("(dev dependency)")) continue;
     let blocking = false;
-    if (f.category === "dependencies") blocking = f.rule !== "osv-unavailable" && atLeast(f.severity, policy.block_dependencies_at);
+    if (f.category === "dependencies") blocking = f.rule !== "osv-unavailable" && (atLeast(f.severity, policy.block_dependencies_at) || (policy.block_known_exploited && f.knownExploited === true));
     else if (f.source === "deterministic") blocking = atLeast(f.severity, policy.block_rules_at) && f.confidence >= 0.9;
     else blocking = atLeast(f.severity, policy.block_model_at) && f.confidence >= policy.block_model_min_confidence;
     out.push({ ...f, blocking });
@@ -87,6 +94,11 @@ export function parsePolicy(input: unknown): Policy {
   for (const k of ["block_model_min_confidence", "report_min_confidence"] as const) if (typeof p[k] !== "number" || p[k] < 0 || p[k] > 1) throw new Error(`${k} must be between 0 and 1`);
   if (typeof p.include_dev_dependencies !== "boolean") throw new Error("include_dev_dependencies must be true or false");
   if (!Array.isArray(p.ignore_paths) || p.ignore_paths.some((x) => typeof x !== "string")) throw new Error("ignore_paths must be a list of path prefixes");
+  if (typeof p.block_known_exploited !== "boolean") throw new Error("block_known_exploited must be true or false");
+  const ids = HARD_EXCLUSIONS.map((e) => e.id);
+  if (!Array.isArray(p.model_exclusions) || p.model_exclusions.some((x) => typeof x !== "string" || !ids.includes(x))) {
+    throw new Error(`model_exclusions must list any of: ${ids.join(", ")}`);
+  }
   if (typeof p.version !== "string" || !/^[\w.-]{1,40}$/.test(p.version)) throw new Error("version must be a short label like 2026-11-02 or v3");
   return p;
 }

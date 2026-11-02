@@ -210,3 +210,27 @@ export async function createComment(a: { repo: string; issueNumber: number; body
   });
   await ensureOk(res, "create comment");
 }
+
+export interface CodeScanningAlert {
+  number: number;
+  html_url?: string;
+  rule?: { id?: string; name?: string; description?: string; severity?: string; security_severity_level?: string | null };
+  tool?: { name?: string };
+  most_recent_instance?: { message?: { text?: string }; location?: { path?: string; start_line?: number; end_line?: number } };
+}
+
+/**
+ * Open code-scanning alerts for a pull request's merge ref: results that zizmor, CodeQL, osv-scanner or any other SARIF
+ * tool uploaded from GitHub Actions. Needs "Code scanning alerts: read" on the App or token. Returns null (not an error)
+ * when code scanning is off, not permitted, or not finished, so the review never fails because of it.
+ */
+export async function listCodeScanningAlerts(repo: string, number: number, token?: string | null, f: typeof fetch = fetch): Promise<CodeScanningAlert[] | null> {
+  if (!token) return null;
+  try {
+    const res = await f(`${API}/repos/${repo}/code-scanning/alerts?ref=${encodeURIComponent(`refs/pull/${number}/merge`)}&state=open&per_page=100`, { headers: baseHeaders(token) });
+    if (!res.ok) return null;
+    return (await res.json()) as CodeScanningAlert[];
+  } catch {
+    return null;
+  }
+}

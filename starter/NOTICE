@@ -1,11 +1,21 @@
 cloudflare-security-reviewer
-Copyright (c) 2026 ClawBuilders. Licensed under the MIT License (see LICENSE).
+Copyright (c) 2026 ClawBuilders. Licensed under the MIT License (see ../LICENSE).
+This is the Starter track; the Advanced track at the repository root also vendors CoSAI Project CodeGuard (CC-BY-4.0).
 
 This repository includes third-party material:
 
 - cloudflare/security-audit-skill (https://github.com/cloudflare/security-audit-skill)
   Copyright (c) 2025-2026 Cloudflare, Inc. MIT License.
-  Vendored unmodified under starter/skills/security-audit/ at commit c1c8a8c1471069fb0e188eeaff69b8e8db6564a8,
-  with its LICENSE alongside. Extracted into starter/src/lib/skills.generated.ts by scripts/sync-skills.mjs.
+  Vendored unmodified under skills/security-audit/ at commit c1c8a8c1471069fb0e188eeaff69b8e8db6564a8,
+  with its LICENSE alongside. Extracted into src/lib/skills.generated.ts by scripts/sync-skills.mjs.
+
+- anthropics/claude-code-security-review (https://github.com/anthropics/claude-code-security-review)
+  Copyright (c) 2025 Anthropic PBC. MIT License.
+  Hard exclusion rules and false-positive precedents adapted from claudecode/findings_filter.py and
+  claudecode/claude_api_client.py at commit 0c6a49f1fa56a1d472575da86a94dbc1edb78eda into
+  src/lib/exclusions.ts. Changes are listed at the top of that file.
+
+- Exploitation data fetched at run time, not redistributed: EPSS (FIRST.org, https://www.first.org/epss/) and the CISA
+  Known Exploited Vulnerabilities catalog (CC0). Package metadata from deps.dev (https://deps.dev) at run time.
 
 - GitHub helper code adapted from Clawbuilders/cloudflare-compliance-reviewer (MIT).

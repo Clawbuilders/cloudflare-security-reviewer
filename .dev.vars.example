@@ -1,3 +1,5 @@
 GITHUB_WEBHOOK_SECRET="any-long-random-string"
 GITHUB_TOKEN="github_pat_..."
 ADMIN_TOKEN=""
+CODE_SCANNING="true"
+SCANNER_WORKFLOWS="zizmor,CodeQL,osv-scanner"

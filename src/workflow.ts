@@ -9,7 +9,7 @@ import type { Env, ReviewParams } from "./env";
 import { isActive, waivable } from "./commands";
 import { BUILT_IN, filesFor, forcedBy, signalCategories, toSpecialist, withFiles, type Specialist } from "./specialists";
 import { summarise, triage } from "./triage";
-import { checks, collect, fromSignalData } from "../starter/src/lib/pipeline";
+import { checks, collect, fromSignalData, scannerSummary } from "../starter/src/lib/pipeline";
 import { isDocs, isReviewable, priority } from "../starter/src/lib/files";
 import { dedupe, type Finding } from "../starter/src/lib/findings";
 import { resolveGitHubToken, setCommitStatus, upsertComment } from "../starter/src/lib/github";
@@ -46,7 +46,9 @@ export class ReviewWorkflow extends WorkflowEntrypoint<Env, ReviewParams> {
     const policy = stored.policy;
     const committee: Specialist[] = [...BUILT_IN, ...stored.specialists.map(toSpecialist)];
 
-    const collected = await step.do("collect", RETRY, async () => collect(p, await token(env, p.installationId), policy, Number(env.MAX_CONTEXT_FILES || 15)));
+    const collected = await step.do("collect", RETRY, async () =>
+      collect(p, await token(env, p.installationId), policy, { maxContextFiles: Number(env.MAX_CONTEXT_FILES || 15), codeScanning: env.CODE_SCANNING !== "false" }),
+    );
     if (!dry) {
       await step.do("status: pending", RETRY, async () =>
         setCommitStatus({ repo: p.repo, sha: collected.sha, state: "pending", description: "Security committee reviewing", token: await token(env, p.installationId) }),
@@ -82,11 +84,12 @@ export class ReviewWorkflow extends WorkflowEntrypoint<Env, ReviewParams> {
     );
 
     const verified = await step.do("verify", RETRY, async () => {
-      const all = proposals.flatMap((x) => x.candidates);
+      // Scanner alerts (zizmor, CodeQL, ...) are verified alongside the specialists' proposals.
+      const all = [...proposals.flatMap((x) => x.candidates), ...(reviewable.length ? checked.scanner : [])];
       try {
         // The verifier applies the validation rules of every domain whose specialist proposed something.
         const domains = proposals.filter((x) => x.candidates.length > 0).flatMap((x) => x.skills);
-        return await verify(env.AI, opts, all, reviewable, domains);
+        return await verify(env.AI, opts, all, reviewable, domains, policy.model_exclusions);
       } catch (e) {
         return { kept: [] as Finding[], dismissed: all.map((c) => ({ title: c.title, file: c.file, reason: `verifier failed: ${String(e).slice(0, 80)}` })) };
       }
@@ -120,6 +123,7 @@ export class ReviewWorkflow extends WorkflowEntrypoint<Env, ReviewParams> {
           reviewedByModel: reviewable.length,
           omitted: [],
           skills: proposals.filter((x) => x.skills.length > 0).map((x) => `${x.id}: ${x.skills.join(" + ")}`),
+          scanners: scannerSummary(collected.alerts),
           skippedModel:
             plan.run.length === 0
               ? `no specialist needed (${plan.tier})`

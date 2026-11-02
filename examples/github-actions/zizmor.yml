@@ -1,0 +1,26 @@
+# Copy into the reviewed repository's .github/workflows/. zizmor finds security problems in GitHub Actions workflows
+# (template injection, excessive permissions, unpinned actions...) and uploads them to code scanning, where the
+# ClawBuilders security reviewer reads the alerts on lines a pull request added.
+# https://docs.zizmor.sh  ·  https://github.com/zizmorcore/zizmor-action
+name: zizmor
+
+on:
+  pull_request:
+    paths: [".github/workflows/**", ".github/actions/**"]
+  push:
+    branches: [main]
+
+permissions: {}
+
+jobs:
+  zizmor:
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write   # upload SARIF to code scanning
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262   # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: zizmorcore/zizmor-action@53290badfa369cb0bf7ad16342cb62c2fa47ac7b   # v0.8.0

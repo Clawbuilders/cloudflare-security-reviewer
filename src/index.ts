@@ -1,7 +1,8 @@
 /**
  * ADVANCED TRACK: a security committee for every pull request, on Cloudflare (free plan).
  *
- *   POST /                         GitHub webhook: pull_request (review) and issue_comment (/waive, /approve, /security ...)
+ *   POST /                         GitHub webhook: pull_request (review), issue_comment (/waive, /approve, /security ...)
+ *                                  and workflow_run (re-review when a scanner workflow such as zizmor or CodeQL finishes)
  *   GET  /api/<owner>/<repo>/policy    the active policy and its history        (Bearer ADMIN_TOKEN)
  *   PUT  /api/<owner>/<repo>/policy    publish a new policy version, no redeploy (Bearer ADMIN_TOKEN)
  *   GET  /api/<owner>/<repo>/audit     every verdict with the policy version that produced it (Bearer ADMIN_TOKEN)
@@ -12,10 +13,12 @@ import type { Env } from "./env";
 import { SecurityAgent } from "./agent";
 import { ReviewWorkflow } from "./workflow";
 import { verifyWebhookSignature } from "../starter/src/lib/github";
+import { isScannerWorkflow } from "./scanners";
 
 export { SecurityAgent, ReviewWorkflow };
 
 const REVIEW_ACTIONS = new Set(["opened", "synchronize", "reopened", "ready_for_review"]);
+
 
 function sameSecret(a: string, b: string): boolean {
   if (a.length !== b.length) return false;
@@ -94,6 +97,12 @@ export default {
         installationId: payload.installation?.id,
       });
       return new Response("Accepted", { status: 202 });
+    }
+    if (event === "workflow_run" && payload.action === "completed" && env.CODE_SCANNING !== "false" && isScannerWorkflow(String(payload.workflow_run?.name ?? ""), env.SCANNER_WORKFLOWS)) {
+      const run = payload.workflow_run;
+      const prs = (Array.isArray(run.pull_requests) ? run.pull_requests : []).map((x: any) => ({ number: Number(x.number), sha: String(run.head_sha) }));
+      if (prs.length) await agent.onScannerFinished({ repo, runId: Number(run.id), prs, installationId: payload.installation?.id });
+      return Response.json({ rescan: prs.map((x: { number: number }) => x.number) }, { status: 202 });
     }
     return new Response("Ignored", { status: 202 });
   },

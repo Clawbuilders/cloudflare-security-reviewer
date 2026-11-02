@@ -29,6 +29,10 @@ export interface Finding {
   /** Set by the policy: does this finding fail the review? */
   blocking: boolean;
   specialist?: string;
+  /** Dependency findings: listed in CISA's Known Exploited Vulnerabilities catalog. */
+  knownExploited?: boolean;
+  /** Dependency findings: EPSS probability of exploitation in the next 30 days (0..1). */
+  epss?: number;
 }
 
 export interface Dismissed {
