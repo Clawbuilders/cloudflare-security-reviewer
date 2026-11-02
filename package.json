@@ -1,0 +1,30 @@
+{
+  "name": "security-committee",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Advanced Track: a security committee for every GitHub pull request on Cloudflare (Agents SDK, Workflows, Workers AI + Clef). The Starter Track lives in ./starter.",
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p starter"
+  },
+  "cloudflare": {
+    "bindings": {
+      "GITHUB_WEBHOOK_SECRET": { "description": "Any long random string. Type the same value into your GitHub webhook's Secret field." },
+      "GITHUB_TOKEN": { "description": "Fine-grained GitHub token for the repos to review: Pull requests (read and write), Issues (read and write), Commit statuses (read and write), Contents (read), Metadata (read)." },
+      "ADMIN_TOKEN": { "description": "Optional. A long random string that unlocks the policy and audit API. Leave empty to keep that API off." }
+    }
+  },
+  "dependencies": {
+    "agents": "^0.32.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20261102.1",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.7",
+    "wrangler": "^4.156.2"
+  }
+}

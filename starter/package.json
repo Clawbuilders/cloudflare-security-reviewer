@@ -1,0 +1,24 @@
+{
+  "name": "security-reviewer-starter",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Starter Track: a security reviewer for every GitHub pull request on Cloudflare Workers + Workers AI (free plan). Lives in its own directory so the Deploy to Cloudflare button can target it.",
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "typecheck": "tsc --noEmit"
+  },
+  "cloudflare": {
+    "bindings": {
+      "GITHUB_WEBHOOK_SECRET": { "description": "Any long random string. Type the same value into your GitHub webhook's Secret field." },
+      "GITHUB_TOKEN": { "description": "Fine-grained GitHub token for the repos to review: Pull requests (read and write), Commit statuses (read and write), Contents (read)." }
+    }
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20261102.1",
+    "typescript": "^5.9.3",
+    "wrangler": "^4.156.2"
+  }
+}

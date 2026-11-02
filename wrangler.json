@@ -1,0 +1,20 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "security-committee",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-09",
+  "compatibility_flags": ["nodejs_compat"],
+  "ai": { "binding": "AI" },
+  "durable_objects": { "bindings": [{ "name": "SECURITY_AGENT", "class_name": "SecurityAgent" }] },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["SecurityAgent"] }],
+  "workflows": [{ "name": "security-committee-review", "binding": "REVIEW_WORKFLOW", "class_name": "ReviewWorkflow" }],
+  "vars": {
+    "MODEL": "@cf/openai/gpt-oss-120b",
+    "VERIFY_MODEL": "@cf/nvidia/nemotron-3-120b-a12b",
+    "TRIAGE_THRESHOLD": "0.35",
+    "MIN_CONFIDENCE": "0.6",
+    "MAX_CONTEXT_FILES": "15",
+    "MAX_MODEL_CHARS": "30000"
+  },
+  "observability": { "enabled": true }
+}
